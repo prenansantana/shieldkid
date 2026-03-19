@@ -1,10 +1,9 @@
 import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db } from "@/server/db";
+import { Pool } from "pg";
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "pg",
+  database: new Pool({
+    connectionString: process.env.DATABASE_URL,
   }),
   emailAndPassword: {
     enabled: true,

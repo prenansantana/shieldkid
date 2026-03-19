@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { signOut } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/overview", label: "Overview" },
@@ -11,6 +15,8 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
@@ -33,6 +39,17 @@ export default function DashboardLayout({
                   </Link>
                 ))}
               </div>
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={async () => {
+                  await signOut();
+                  router.push("/login");
+                }}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Sair
+              </button>
             </div>
           </div>
         </div>
