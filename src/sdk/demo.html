@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShieldKid SDK Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 24px; }
+    button { padding: 12px 24px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    button:hover { opacity: 0.9; }
+    pre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow: auto; }
+    .config { margin: 20px 0; }
+    .config label { display: block; margin-bottom: 4px; font-weight: 500; }
+    .config input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 12px; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1>ShieldKid SDK Demo</h1>
+
+  <div class="config">
+    <label>Endpoint</label>
+    <input id="endpoint" value="http://localhost:3000" />
+
+    <label>API Token</label>
+    <input id="token" placeholder="sk_xxx" />
+
+    <label>External User ID</label>
+    <input id="userId" value="demo-user-123" />
+  </div>
+
+  <button onclick="openVerification()">Open Age Verification</button>
+
+  <h3>Result:</h3>
+  <pre id="result">Waiting for verification...</pre>
+
+  <!-- In production, use the bundled SDK from dist/sdk -->
+  <script type="module">
+    import { ShieldKid } from './index.ts';
+
+    window.openVerification = function() {
+      const endpoint = document.getElementById('endpoint').value;
+      const token = document.getElementById('token').value;
+      const userId = document.getElementById('userId').value;
+
+      const sk = ShieldKid.init({
+        endpoint,
+        token,
+        mode: 'gate',
+        locale: 'pt-BR',
+        onVerified: (result) => {
+          document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+        },
+        onMinor: (result) => {
+          console.log('Minor detected:', result);
+        },
+        onError: (error) => {
+          document.getElementById('result').textContent = 'Error: ' + error.message;
+        },
+      });
+
+      sk.open(userId);
+    };
+  </script>
+</body>
+</html>

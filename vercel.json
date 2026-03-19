@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/age-transitions",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
