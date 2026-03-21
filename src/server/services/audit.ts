@@ -1,11 +1,14 @@
 import { db } from "@/server/db";
-import { auditLogs } from "@/server/db/schema";
+import { auditLog } from "@/server/db/schema";
 
 export type AuditEventType =
   | "verification.cpf.started"
   | "verification.cpf.completed"
   | "verification.cpf.cache_hit"
   | "verification.cpf.failed"
+  | "verification.ai.started"
+  | "verification.ai.completed"
+  | "verification.ai.failed"
   | "parental.link.created"
   | "parental.link.approved"
   | "parental.link.revoked"
@@ -23,7 +26,7 @@ export async function logAudit(params: {
   payload?: Record<string, unknown>;
   ipAddress?: string;
 }) {
-  await db.insert(auditLogs).values({
+  await db.insert(auditLog).values({
     eventType: params.eventType,
     actorId: params.actorId,
     targetId: params.targetId,

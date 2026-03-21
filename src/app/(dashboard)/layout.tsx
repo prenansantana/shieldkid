@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 const navItems = [
   { href: "/overview", label: "Overview" },
   { href: "/verifications", label: "Verificações" },
+  { href: "/webhooks", label: "Webhooks" },
   { href: "/settings", label: "Configurações" },
 ];
 

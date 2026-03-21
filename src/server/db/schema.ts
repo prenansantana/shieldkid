@@ -34,6 +34,7 @@ export const parentalLinkStatusEnum = pgEnum("parental_link_status", [
 export const verificationSourceEnum = pgEnum("verification_source", [
   "serpro",
   "cache",
+  "ai",
 ]);
 
 // ── Auth tables (managed by Better Auth via pg Pool) ───
@@ -41,32 +42,32 @@ export const verificationSourceEnum = pgEnum("verification_source", [
 // These use camelCase columns and are NOT managed by Drizzle.
 // See src/server/lib/auth.ts for config.
 
-// ── Settings (single-tenant config) ────────────────────
+// ── Setting (single-tenant config) ────────────────────
 
-export const settings = pgTable("settings", {
+export const setting = pgTable("setting", {
   id: uuid("id").defaultRandom().primaryKey(),
-  serproApiUrl: text("serpro_api_url")
+  serproApiUrl: text("serproApiUrl")
     .notNull()
     .default("https://gateway.apiserpro.serpro.gov.br"),
-  serproClientId: text("serpro_client_id"),
-  serproClientSecret: text("serpro_client_secret"),
-  webhookUrl: text("webhook_url"),
-  webhookSecret: text("webhook_secret"),
-  webhookEvents: jsonb("webhook_events").$type<string[]>().default([]),
-  emailProvider: text("email_provider").default("resend"),
-  emailConfig: jsonb("email_config").$type<Record<string, string>>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  serproClientId: text("serproClientId"),
+  serproClientSecret: text("serproClientSecret"),
+  webhookUrl: text("webhookUrl"),
+  webhookSecret: text("webhookSecret"),
+  webhookEvents: jsonb("webhookEvents").$type<string[]>().default([]),
+  emailProvider: text("emailProvider").default("resend"),
+  emailConfig: jsonb("emailConfig").$type<Record<string, string>>(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
-// ── API Tokens ─────────────────────────────────────────
+// ── API Token ─────────────────────────────────────────
 
-export const apiTokens = pgTable("api_tokens", {
+export const apiToken = pgTable("api_token", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
-  tokenHash: text("token_hash").notNull().unique(),
-  lastUsedAt: timestamp("last_used_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  tokenHash: text("tokenHash").notNull().unique(),
+  lastUsedAt: timestamp("lastUsedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 // ── CPF Cache (eternal — birthdate never changes) ──────
@@ -75,36 +76,36 @@ export const cpfCache = pgTable(
   "cpf_cache",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    cpfHash: text("cpf_hash").notNull(),
-    birthDateEncrypted: text("birth_date_encrypted").notNull(),
-    cpfStatus: cpfStatusEnum("cpf_status").notNull().default("regular"),
-    serproVerifiedAt: timestamp("serpro_verified_at").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    cpfHash: text("cpfHash").notNull(),
+    birthDateEncrypted: text("birthDateEncrypted").notNull(),
+    cpfStatus: cpfStatusEnum("cpfStatus").notNull().default("regular"),
+    serproVerifiedAt: timestamp("serproVerifiedAt").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   (table) => [uniqueIndex("cpf_hash_idx").on(table.cpfHash)]
 );
 
-// ── Age Verifications ──────────────────────────────────
+// ── Age Verification ──────────────────────────────────
 
-export const ageVerifications = pgTable("age_verifications", {
+export const ageVerification = pgTable("age_verification", {
   id: uuid("id").defaultRandom().primaryKey(),
-  externalUserId: text("external_user_id").notNull(),
-  cpfCacheId: uuid("cpf_cache_id").references(() => cpfCache.id),
-  ageBracket: ageBracketEnum("age_bracket").notNull(),
-  ageAtVerification: integer("age_at_verification").notNull(),
+  externalUserId: text("externalUserId").notNull(),
+  cpfCacheId: uuid("cpfCacheId").references(() => cpfCache.id),
+  ageBracket: ageBracketEnum("ageBracket").notNull(),
+  ageAtVerification: integer("ageAtVerification").notNull(),
   source: verificationSourceEnum("source").notNull(),
-  ipAddress: text("ip_address"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  ipAddress: text("ipAddress"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-// ── Parental Links ─────────────────────────────────────
+// ── Parental Link ─────────────────────────────────────
 
-export const parentalLinks = pgTable("parental_links", {
+export const parentalLink = pgTable("parental_link", {
   id: uuid("id").defaultRandom().primaryKey(),
-  minorExternalId: text("minor_external_id").notNull(),
-  guardianExternalId: text("guardian_external_id").notNull(),
-  guardianVerificationId: uuid("guardian_verification_id").references(
-    () => ageVerifications.id
+  minorExternalId: text("minorExternalId").notNull(),
+  guardianExternalId: text("guardianExternalId").notNull(),
+  guardianVerificationId: uuid("guardianVerificationId").references(
+    () => ageVerification.id
   ),
   status: parentalLinkStatusEnum("status").notNull().default("pending"),
   settings: jsonb("settings")
@@ -114,18 +115,18 @@ export const parentalLinks = pgTable("parental_links", {
       purchaseApproval?: boolean;
     }>()
     .default({}),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
-// ── Audit Logs (append-only) ───────────────────────────
+// ── Audit Log (append-only) ───────────────────────────
 
-export const auditLogs = pgTable("audit_logs", {
+export const auditLog = pgTable("audit_log", {
   id: uuid("id").defaultRandom().primaryKey(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-  eventType: text("event_type").notNull(),
-  actorId: text("actor_id"),
-  targetId: text("target_id"),
+  eventType: text("eventType").notNull(),
+  actorId: text("actorId"),
+  targetId: text("targetId"),
   payload: jsonb("payload").$type<Record<string, unknown>>(),
-  ipAddress: text("ip_address"),
+  ipAddress: text("ipAddress"),
 });

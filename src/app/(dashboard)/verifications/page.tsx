@@ -1,16 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import { db } from "@/server/db";
-import { ageVerifications } from "@/server/db/schema";
+import { ageVerification } from "@/server/db/schema";
 import { desc, count } from "drizzle-orm";
 
 async function getVerifications(page: number = 1, perPage: number = 20) {
-  const [total] = await db.select({ count: count() }).from(ageVerifications);
+  const [total] = await db.select({ count: count() }).from(ageVerification);
 
   const items = await db
     .select()
-    .from(ageVerifications)
-    .orderBy(desc(ageVerifications.createdAt))
+    .from(ageVerification)
+    .orderBy(desc(ageVerification.createdAt))
     .limit(perPage)
     .offset((page - 1) * perPage);
 
@@ -22,10 +22,22 @@ async function getVerifications(page: number = 1, perPage: number = 20) {
 }
 
 const bracketLabels: Record<string, string> = {
-  child: "Crianca (<12)",
+  child: "Criança (<12)",
   teen_12_15: "Adolescente (12-15)",
   teen_16_17: "Jovem (16-17)",
   adult: "Adulto (18+)",
+};
+
+const sourceLabels: Record<string, string> = {
+  serpro: "Serpro",
+  cache: "Cache",
+  ai: "IA",
+};
+
+const sourceColors: Record<string, string> = {
+  serpro: "bg-blue-100 text-blue-700",
+  cache: "bg-gray-100 text-gray-700",
+  ai: "bg-purple-100 text-purple-700",
 };
 
 const bracketColors: Record<string, string> = {
@@ -98,8 +110,12 @@ export default async function VerificationsPage({
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {v.ageAtVerification} anos
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {v.source === "cache" ? "Cache" : "Serpro"}
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                      sourceColors[v.source] ?? "bg-gray-100 text-gray-700"
+                    }`}>
+                      {sourceLabels[v.source] ?? v.source}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {v.createdAt.toLocaleDateString("pt-BR")}{" "}

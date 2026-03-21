@@ -72,3 +72,71 @@ export function decrypt(encryptedValue: string): string {
 export function hashToken(token: string): string {
   return createHmac("sha256", getHmacSecret()).update(token).digest("hex");
 }
+
+/**
+ * SDK session tokens — stateless, HMAC-signed, short-lived.
+ *
+ * Prevents image uploads from outside the SDK:
+ * 1. SDK requests a session before opening the camera
+ * 2. Session contains a nonce + expiry, signed with HMAC
+ * 3. Image uploads require a valid session token
+ * 4. Sessions are single-use (nonce checked server-side)
+ */
+
+const SESSION_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+export function createSessionToken(): { sessionId: string; expiresAt: number } {
+  const nonce = randomBytes(16).toString("hex");
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  const payload = `${nonce}:${expiresAt}`;
+  const signature = createHmac("sha256", getHmacSecret())
+    .update(`session:${payload}`)
+    .digest("hex");
+
+  return {
+    sessionId: `${payload}:${signature}`,
+    expiresAt,
+  };
+}
+
+export function validateSessionToken(sessionId: string): { valid: boolean; nonce: string; error?: string } {
+  const parts = sessionId.split(":");
+  if (parts.length !== 3) {
+    return { valid: false, nonce: "", error: "Formato de sessao invalido" };
+  }
+
+  const [nonce, expiresAtStr, signature] = parts;
+  const expiresAt = parseInt(expiresAtStr!, 10);
+
+  // Verify signature
+  const expectedSig = createHmac("sha256", getHmacSecret())
+    .update(`session:${nonce}:${expiresAtStr}`)
+    .digest("hex");
+
+  if (signature !== expectedSig) {
+    return { valid: false, nonce: nonce!, error: "Sessão inválida" };
+  }
+
+  // Check expiry
+  if (Date.now() > expiresAt) {
+    return { valid: false, nonce: nonce!, error: "Sessão expirada" };
+  }
+
+  return { valid: true, nonce: nonce! };
+}
+
+// In-memory set of used nonces (single-use sessions)
+const usedNonces = new Set<string>();
+
+// Cleanup old nonces every 5 minutes
+setInterval(() => {
+  usedNonces.clear();
+}, 5 * 60 * 1000).unref();
+
+export function markSessionUsed(nonce: string): boolean {
+  if (usedNonces.has(nonce)) {
+    return false; // Already used
+  }
+  usedNonces.add(nonce);
+  return true;
+}

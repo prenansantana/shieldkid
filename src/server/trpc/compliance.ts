@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { desc, count, eq, sql, and, gte, lte } from "drizzle-orm";
 import { protectedProcedure, router } from "./init";
-import { auditLogs, ageVerifications } from "@/server/db/schema";
+import { auditLog, ageVerification } from "@/server/db/schema";
 
 export const complianceRouter = router({
   /**
@@ -21,13 +21,13 @@ export const complianceRouter = router({
       const conditions = [];
 
       if (input.eventType) {
-        conditions.push(eq(auditLogs.eventType, input.eventType));
+        conditions.push(eq(auditLog.eventType, input.eventType));
       }
       if (input.startDate) {
-        conditions.push(gte(auditLogs.timestamp, new Date(input.startDate)));
+        conditions.push(gte(auditLog.timestamp, new Date(input.startDate)));
       }
       if (input.endDate) {
-        conditions.push(lte(auditLogs.timestamp, new Date(input.endDate)));
+        conditions.push(lte(auditLog.timestamp, new Date(input.endDate)));
       }
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -35,12 +35,12 @@ export const complianceRouter = router({
       const [logs, [total]] = await Promise.all([
         ctx.db
           .select()
-          .from(auditLogs)
+          .from(auditLog)
           .where(where)
-          .orderBy(desc(auditLogs.timestamp))
+          .orderBy(desc(auditLog.timestamp))
           .limit(input.perPage)
           .offset((input.page - 1) * input.perPage),
-        ctx.db.select({ count: count() }).from(auditLogs).where(where),
+        ctx.db.select({ count: count() }).from(auditLog).where(where),
       ]);
 
       return {
@@ -72,28 +72,28 @@ export const complianceRouter = router({
 
       const [totalVerifications] = await ctx.db
         .select({ count: count() })
-        .from(ageVerifications);
+        .from(ageVerification);
 
       const [recentVerifications] = await ctx.db
         .select({ count: count() })
-        .from(ageVerifications)
-        .where(gte(ageVerifications.createdAt, since));
+        .from(ageVerification)
+        .where(gte(ageVerification.createdAt, since));
 
       const bracketCounts = await ctx.db
         .select({
-          ageBracket: ageVerifications.ageBracket,
+          ageBracket: ageVerification.ageBracket,
           count: count(),
         })
-        .from(ageVerifications)
-        .groupBy(ageVerifications.ageBracket);
+        .from(ageVerification)
+        .groupBy(ageVerification.ageBracket);
 
       const sourceCounts = await ctx.db
         .select({
-          source: ageVerifications.source,
+          source: ageVerification.source,
           count: count(),
         })
-        .from(ageVerifications)
-        .groupBy(ageVerifications.source);
+        .from(ageVerification)
+        .groupBy(ageVerification.source);
 
       const cacheHitRate =
         sourceCounts.find((s) => s.source === "cache")?.count ?? 0;
@@ -128,32 +128,32 @@ export const complianceRouter = router({
       const end = new Date(input.endDate);
 
       const dateFilter = and(
-        gte(ageVerifications.createdAt, start),
-        lte(ageVerifications.createdAt, end)
+        gte(ageVerification.createdAt, start),
+        lte(ageVerification.createdAt, end)
       );
 
       const [total] = await ctx.db
         .select({ count: count() })
-        .from(ageVerifications)
+        .from(ageVerification)
         .where(dateFilter);
 
       const brackets = await ctx.db
         .select({
-          ageBracket: ageVerifications.ageBracket,
+          ageBracket: ageVerification.ageBracket,
           count: count(),
         })
-        .from(ageVerifications)
+        .from(ageVerification)
         .where(dateFilter)
-        .groupBy(ageVerifications.ageBracket);
+        .groupBy(ageVerification.ageBracket);
 
       const sources = await ctx.db
         .select({
-          source: ageVerifications.source,
+          source: ageVerification.source,
           count: count(),
         })
-        .from(ageVerifications)
+        .from(ageVerification)
         .where(dateFilter)
-        .groupBy(ageVerifications.source);
+        .groupBy(ageVerification.source);
 
       return {
         period: { start: input.startDate, end: input.endDate },

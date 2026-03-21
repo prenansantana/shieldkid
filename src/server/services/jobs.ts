@@ -17,12 +17,24 @@ export async function getBoss(): Promise<PgBoss> {
   boss = new PgBoss(databaseUrl);
   await boss.start();
 
+  // Create queues (required in pgboss v10+)
+  // webhook-dispatch: 3 retries com backoff exponencial (10s, 40s, 90s)
+  // Jobs concluídos/falhados são removidos após 60s
+  await boss.createQueue("webhook-dispatch", {
+    retryLimit: 3,
+    retryDelay: 10,
+    retryBackoff: true,
+    expireInSeconds: 30,
+    retentionSeconds: 60,
+  });
+  await boss.createQueue("age-check-transitions");
+
   // Register workers
-  await boss.work("webhook:dispatch", handleWebhookDispatch);
+  await boss.work("webhook-dispatch", handleWebhookDispatch);
 
   // Schedule daily age transition check at 03:00 UTC
-  await boss.schedule("age:check-transitions", "0 3 * * *");
-  await boss.work("age:check-transitions", handleAgeTransitions);
+  await boss.schedule("age-check-transitions", "0 3 * * *");
+  await boss.work("age-check-transitions", handleAgeTransitions);
 
   return boss;
 }
@@ -34,11 +46,16 @@ type WebhookJobData = {
 
 async function handleWebhookDispatch(job: Job<WebhookJobData>[]) {
   for (const j of job) {
-    await dispatchWebhook({
+    const success = await dispatchWebhook({
       event: j.data.event,
       data: j.data.data,
       timestamp: new Date().toISOString(),
     });
+
+    if (!success) {
+      // Throw para pgboss agendar retry com backoff
+      throw new Error(`Webhook falhou para evento ${j.data.event}`);
+    }
   }
 }
 
@@ -68,7 +85,7 @@ async function handleAgeTransitions() {
 
         // Enqueue webhook
         if (boss) {
-          await boss.send("webhook:dispatch", {
+          await boss.send("webhook-dispatch", {
             event: "age_bracket_change",
             data: {
               cpfCacheId: entry.id,
@@ -107,5 +124,5 @@ export async function enqueueWebhook(
   data: Record<string, unknown>
 ) {
   const b = await getBoss();
-  await b.send("webhook:dispatch", { event, data });
+  await b.send("webhook-dispatch", { event, data });
 }

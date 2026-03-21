@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { db } from "@/server/db";
-import { apiTokens } from "@/server/db/schema";
+import { apiToken } from "@/server/db/schema";
 import { hashToken } from "@/server/lib/crypto";
 import { eq } from "drizzle-orm";
 
@@ -33,8 +33,8 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   const tokenHash = hashToken(ctx.apiToken);
   const [token] = await ctx.db
     .select()
-    .from(apiTokens)
-    .where(eq(apiTokens.tokenHash, tokenHash))
+    .from(apiToken)
+    .where(eq(apiToken.tokenHash, tokenHash))
     .limit(1);
 
   if (!token) {
@@ -46,9 +46,9 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
 
   // Update last used timestamp
   await ctx.db
-    .update(apiTokens)
+    .update(apiToken)
     .set({ lastUsedAt: new Date() })
-    .where(eq(apiTokens.id, token.id));
+    .where(eq(apiToken.id, token.id));
 
   return next({ ctx });
 });

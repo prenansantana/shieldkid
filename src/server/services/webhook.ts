@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
 import { db } from "@/server/db";
-import { settings } from "@/server/db/schema";
+import { setting } from "@/server/db/schema";
 import { logAudit } from "./audit";
 
 type WebhookEvent = {
@@ -21,7 +21,7 @@ function signPayload(payload: string, secret: string): string {
  * Returns true if successful, false otherwise.
  */
 export async function dispatchWebhook(event: WebhookEvent): Promise<boolean> {
-  const [config] = await db.select().from(settings).limit(1);
+  const [config] = await db.select().from(setting).limit(1);
   if (!config?.webhookUrl || !config?.webhookSecret) {
     return false;
   }

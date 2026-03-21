@@ -28,5 +28,18 @@ services:
       retries: 5
     restart: unless-stopped
 
+  age-ai:
+    build:
+      context: ./services/age-ai
+    ports:
+      - "8100:8100"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 volumes:
   pgdata:

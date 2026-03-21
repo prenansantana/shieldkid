@@ -1,15 +1,18 @@
 import { z } from "zod/v4";
 import { eq } from "drizzle-orm";
 import { protectedProcedure, router } from "./init";
-import { cpfCache, ageVerifications } from "@/server/db/schema";
+import { cpfCache, ageVerification } from "@/server/db/schema";
 import { hashCpf, encrypt, decrypt } from "@/server/lib/crypto";
 import { calculateAge, getAgeBracket } from "@/server/lib/age";
-import { queryCpf } from "@/server/services/serpro";
+import { queryCpf, isSerproConfigured } from "@/server/services/serpro";
 import { logAudit } from "@/server/services/audit";
 
 export const verifyRouter = router({
   /**
    * Verify a user's age by CPF.
+   *
+   * CPF is optional — if Serpro is not configured, the platform
+   * should use the REST endpoint with a selfie (multipart) instead.
    *
    * Flow:
    * 1. Hash CPF → check cache
@@ -24,6 +27,12 @@ export const verifyRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!isSerproConfigured()) {
+        throw new Error(
+          "Serpro não configurado. Use o endpoint REST /api/v1/verify com selfie para verificação por IA."
+        );
+      }
+
       const cpfHash = hashCpf(input.cpf);
 
       await logAudit({
@@ -94,7 +103,7 @@ export const verifyRouter = router({
 
       // Record verification
       const [verification] = await ctx.db
-        .insert(ageVerifications)
+        .insert(ageVerification)
         .values({
           externalUserId: input.externalUserId,
           cpfCacheId: cacheId,
@@ -103,7 +112,7 @@ export const verifyRouter = router({
           source,
           ipAddress: ctx.ipAddress,
         })
-        .returning({ id: ageVerifications.id });
+        .returning({ id: ageVerification.id });
 
       await logAudit({
         eventType: "verification.cpf.completed",
@@ -133,8 +142,8 @@ export const verifyRouter = router({
     .query(async ({ ctx, input }) => {
       const [verification] = await ctx.db
         .select()
-        .from(ageVerifications)
-        .where(eq(ageVerifications.id, input.verificationId))
+        .from(ageVerification)
+        .where(eq(ageVerification.id, input.verificationId))
         .limit(1);
 
       if (!verification) {

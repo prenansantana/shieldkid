@@ -1,11 +1,21 @@
 export type AgeBracket = "child" | "teen_12_15" | "teen_16_17" | "adult";
 
+export type VerificationMethod = "cpf" | "face" | "cpf+face";
+
 export interface ShieldKidConfig {
   /** URL of your ShieldKid instance */
   endpoint: string;
   /** API token (sk_xxx) */
   token: string;
-  /** Verification mode */
+  /**
+   * Verification method:
+   * - "cpf": CPF input only (requires Serpro)
+   * - "face": Selfie camera only (requires age-ai service)
+   * - "cpf+face": CPF + selfie cross-check (both services)
+   * Default: "face"
+   */
+  method?: VerificationMethod;
+  /** Widget behavior: "gate" blocks dismissal, "inline" allows close */
   mode?: "gate" | "inline";
   /** External user ID in your platform */
   externalUserId?: string;
@@ -32,5 +42,10 @@ export interface VerificationResult {
   isAdult: boolean;
   isMinor: boolean;
   requiresGuardian: boolean;
-  cpfStatus: string;
+  source: string;
+  cpfStatus?: string;
+  estimatedAge?: number;
+  confidence?: number;
+  action?: "allow" | "flag" | "block";
+  consistent?: boolean;
 }

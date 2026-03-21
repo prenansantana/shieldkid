@@ -1,43 +1,74 @@
 export const dynamic = "force-dynamic";
 
 import { db } from "@/server/db";
-import { ageVerifications, cpfCache, auditLogs } from "@/server/db/schema";
-import { count, gte } from "drizzle-orm";
+import { ageVerification, cpfCache, auditLog } from "@/server/db/schema";
+import { count, gte, eq, desc, or } from "drizzle-orm";
 
 async function getStats() {
   const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   const [totalVerifications] = await db
     .select({ count: count() })
-    .from(ageVerifications);
+    .from(ageVerification);
 
   const [recentVerifications] = await db
     .select({ count: count() })
-    .from(ageVerifications)
-    .where(gte(ageVerifications.createdAt, sevenDaysAgo));
+    .from(ageVerification)
+    .where(gte(ageVerification.createdAt, sevenDaysAgo));
 
   const [cachedCpfs] = await db.select({ count: count() }).from(cpfCache);
 
-  const [auditCount] = await db.select({ count: count() }).from(auditLogs);
+  const [auditCount] = await db.select({ count: count() }).from(auditLog);
 
   const bracketCounts = await db
     .select({
-      ageBracket: ageVerifications.ageBracket,
+      ageBracket: ageVerification.ageBracket,
       count: count(),
     })
-    .from(ageVerifications)
-    .groupBy(ageVerifications.ageBracket);
+    .from(ageVerification)
+    .groupBy(ageVerification.ageBracket);
+
+  // Webhook stats from audit log
+  const [webhooksSent] = await db
+    .select({ count: count() })
+    .from(auditLog)
+    .where(eq(auditLog.eventType, "webhook.dispatched"));
+
+  const [webhooksFailed] = await db
+    .select({ count: count() })
+    .from(auditLog)
+    .where(eq(auditLog.eventType, "webhook.failed"));
+
+  // Recent webhook events (last 10)
+  const recentWebhooks = await db
+    .select({
+      id: auditLog.id,
+      eventType: auditLog.eventType,
+      payload: auditLog.payload,
+      timestamp: auditLog.timestamp,
+    })
+    .from(auditLog)
+    .where(
+      or(
+        eq(auditLog.eventType, "webhook.dispatched"),
+        eq(auditLog.eventType, "webhook.failed")
+      )
+    )
+    .orderBy(desc(auditLog.timestamp))
+    .limit(10);
 
   return {
     totalVerifications: totalVerifications!.count,
     recentVerifications: recentVerifications!.count,
     cachedCpfs: cachedCpfs!.count,
-    auditLogs: auditCount!.count,
+    auditLog: auditCount!.count,
     brackets: Object.fromEntries(
       bracketCounts.map((b) => [b.ageBracket, b.count])
     ),
+    webhooksSent: webhooksSent!.count,
+    webhooksFailed: webhooksFailed!.count,
+    recentWebhooks,
   };
 }
 
@@ -58,7 +89,7 @@ export default async function OverviewPage() {
           value={stats.recentVerifications}
         />
         <StatCard title="CPFs em Cache" value={stats.cachedCpfs} />
-        <StatCard title="Logs de Auditoria" value={stats.auditLogs} />
+        <StatCard title="Logs de Auditoria" value={stats.auditLog} />
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
@@ -87,6 +118,62 @@ export default async function OverviewPage() {
             color="bg-green-100 text-green-800"
           />
         </div>
+      </div>
+
+      {/* Webhooks */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Webhooks
+        </h2>
+
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="rounded-lg p-4 bg-green-50">
+            <p className="text-sm text-green-700">Enviados</p>
+            <p className="text-2xl font-bold text-green-900 mt-1">
+              {stats.webhooksSent.toLocaleString("pt-BR")}
+            </p>
+          </div>
+          <div className="rounded-lg p-4 bg-red-50">
+            <p className="text-sm text-red-700">Falhas</p>
+            <p className="text-2xl font-bold text-red-900 mt-1">
+              {stats.webhooksFailed.toLocaleString("pt-BR")}
+            </p>
+          </div>
+        </div>
+
+        {stats.recentWebhooks.length > 0 ? (
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Eventos recentes</h3>
+            <div className="divide-y divide-gray-100">
+              {stats.recentWebhooks.map((w) => {
+                const payload = w.payload as Record<string, unknown> | null;
+                const isSuccess = w.eventType === "webhook.dispatched";
+                return (
+                  <div key={w.id} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-block w-2 h-2 rounded-full ${
+                          isSuccess ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      />
+                      <span className="text-sm font-mono text-gray-700">
+                        {(payload?.event as string) ?? w.eventType}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {w.timestamp.toLocaleDateString("pt-BR")}{" "}
+                      {w.timestamp.toLocaleTimeString("pt-BR")}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">
+            Nenhum webhook disparado ainda. Configure em Configurações.
+          </p>
+        )}
       </div>
     </div>
   );
