@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShieldKid SDK Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 24px; }
+    .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { padding: 12px 24px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    button:hover { opacity: 0.9; }
+    button.secondary { background: white; color: #333; border: 1px solid #ddd; }
+    pre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow: auto; font-size: 13px; }
+    .config { margin: 20px 0; }
+    .config label { display: block; margin-bottom: 4px; font-weight: 500; font-size: 14px; }
+    .config input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 12px; box-sizing: border-box; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+    .badge-face { background: #dbeafe; color: #1e40af; }
+    .badge-cpf { background: #fef3c7; color: #92400e; }
+    .badge-both { background: #d1fae5; color: #065f46; }
+  </style>
+</head>
+<body>
+  <h1>ShieldKid SDK Demo</h1>
+  <p style="color: #666; font-size: 14px;">
+    Teste os 3 modos de verificacao de idade.
+  </p>
+
+  <div class="config">
+    <label>Endpoint</label>
+    <input id="endpoint" value="http://localhost:3000" />
+
+    <label>API Token</label>
+    <input id="token" placeholder="sk_xxx" />
+
+    <label>External User ID</label>
+    <input id="userId" value="demo-user-123" />
+  </div>
+
+  <div class="buttons">
+    <button onclick="openVerification('face')">
+      Selfie <span class="badge badge-face">camera</span>
+    </button>
+    <button onclick="openVerification('cpf')" class="secondary">
+      CPF <span class="badge badge-cpf">serpro</span>
+    </button>
+    <button onclick="openVerification('cpf+face')" class="secondary">
+      CPF + Selfie <span class="badge badge-both">ambos</span>
+    </button>
+  </div>
+
+  <h3 style="margin-top: 24px;">Resultado:</h3>
+  <pre id="result">Aguardando verificacao...</pre>
+
+  <!-- In production, use the bundled SDK from dist/sdk -->
+  <script type="module">
+    import { ShieldKid } from './index.ts';
+
+    window.openVerification = function(method) {
+      const endpoint = document.getElementById('endpoint').value;
+      const token = document.getElementById('token').value;
+      const userId = document.getElementById('userId').value;
+
+      const sk = ShieldKid.init({
+        endpoint,
+        token,
+        method,
+        mode: 'gate',
+        locale: 'pt-BR',
+        onVerified: (result) => {
+          document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+        },
+        onMinor: (result) => {
+          console.log('Menor detectado:', result);
+        },
+        onError: (error) => {
+          document.getElementById('result').textContent = 'Erro: ' + error.message;
+        },
+      });
+
+      sk.open(userId);
+    };
+  </script>
+</body>
+</html>
