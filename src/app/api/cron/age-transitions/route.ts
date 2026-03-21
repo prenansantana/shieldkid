@@ -14,13 +14,13 @@ import { logAudit } from "@/server/services/audit";
  * { "crons": [{ "path": "/api/cron/age-transitions", "schedule": "0 3 * * *" }] }
  */
 export async function GET(req: Request) {
-  // Verify cron secret in production
+  // Verify cron secret — deny by default if not configured
   const authHeader = req.headers.get("authorization");
   if (
-    process.env.CRON_SECRET &&
+    !process.env.CRON_SECRET ||
     authHeader !== `Bearer ${process.env.CRON_SECRET}`
   ) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
   const today = new Date();

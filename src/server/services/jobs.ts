@@ -44,18 +44,16 @@ type WebhookJobData = {
   data: Record<string, unknown>;
 };
 
-async function handleWebhookDispatch(job: Job<WebhookJobData>[]) {
-  for (const j of job) {
-    const success = await dispatchWebhook({
-      event: j.data.event,
-      data: j.data.data,
-      timestamp: new Date().toISOString(),
-    });
+async function handleWebhookDispatch(job: Job<WebhookJobData>) {
+  const success = await dispatchWebhook({
+    event: job.data.event,
+    data: job.data.data,
+    timestamp: new Date().toISOString(),
+  });
 
-    if (!success) {
-      // Throw para pgboss agendar retry com backoff
-      throw new Error(`Webhook falhou para evento ${j.data.event}`);
-    }
+  if (!success) {
+    // Throw para pgboss agendar retry com backoff
+    throw new Error(`Webhook falhou para evento ${job.data.event}`);
   }
 }
 

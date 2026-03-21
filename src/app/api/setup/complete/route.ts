@@ -1,26 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Pool } from "pg";
 import { db } from "@/server/db";
 import { setting, apiToken } from "@/server/db/schema";
-import { hashToken } from "@/server/lib/crypto";
+import { hashToken, encrypt } from "@/server/lib/crypto";
 import { randomBytes } from "crypto";
 
 /**
  * POST /api/setup/complete
  * Saves Serpro settings and creates an API token after admin account creation.
- * Only works if setup is not yet complete.
+ * Only works once — locked out as soon as a settings row exists.
  */
 export async function POST(req: NextRequest) {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
   try {
-    // Guard: only allow if no users exist beyond the one just created
-    const result = await pool.query('SELECT COUNT(*) as count FROM "user"');
-    const userCount = parseInt(result.rows[0].count, 10);
-
-    if (userCount > 1) {
+    // Guard: reject if setup is already done (settings row exists)
+    const [existingSetting] = await db.select({ id: setting.id }).from(setting).limit(1);
+    if (existingSetting) {
       return NextResponse.json(
-        { error: "Setup already completed" },
+        { error: "Setup já foi concluído" },
         { status: 403 }
       );
     }
@@ -32,13 +27,11 @@ export async function POST(req: NextRequest) {
       tokenName?: string;
     };
 
-    // Save Serpro settings if provided
-    if (serproClientId || serproClientSecret) {
-      await db.insert(setting).values({
-        serproClientId: serproClientId || null,
-        serproClientSecret: serproClientSecret || null,
-      });
-    }
+    // Always insert a settings row to permanently lock this endpoint
+    await db.insert(setting).values({
+      serproClientId: serproClientId || null,
+      serproClientSecret: serproClientSecret ? encrypt(serproClientSecret) : null,
+    });
 
     // Create API token
     let apiTokenValue: string | null = null;
@@ -58,11 +51,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Setup completion failed",
+          error instanceof Error ? error.message : "Falha ao concluir o setup",
       },
       { status: 500 }
     );
-  } finally {
-    await pool.end();
   }
 }

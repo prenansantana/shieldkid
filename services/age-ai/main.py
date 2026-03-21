@@ -6,18 +6,16 @@ Uses InsightFace (buffalo_l model) with ONNX Runtime on CPU.
 Endpoints:
   POST /analyze    — Estimate age from image
   POST /compare    — Compare two faces (document vs selfie)
-  POST /kyc        — Full KYC: document photo + selfie → match + age + OCR
+  POST /kyc        — Full KYC: document photo + selfie → match + age
   GET  /health     — Health check
 """
 
 import logging
-import re
 import time
-from typing import Optional
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 
 from insightface.app import FaceAnalysis
@@ -32,15 +30,6 @@ app = FastAPI(
 )
 
 face_app: FaceAnalysis | None = None
-ocr_available = False
-
-try:
-    import pytesseract
-
-    ocr_available = True
-    logger.info("Tesseract OCR available")
-except ImportError:
-    logger.warning("pytesseract not installed — OCR disabled")
 
 
 @app.on_event("startup")
@@ -64,7 +53,6 @@ async def health():
     return {
         "status": "ok",
         "model_loaded": face_app is not None,
-        "ocr_available": ocr_available,
     }
 
 
@@ -110,52 +98,6 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     if norm == 0:
         return 0.0
     return float(dot / norm)
-
-
-def extract_birth_date_ocr(img: np.ndarray) -> Optional[str]:
-    """
-    Try to extract a birth date from a document image using OCR.
-    Returns date string in DD/MM/YYYY format or None.
-    """
-    if not ocr_available:
-        return None
-
-    try:
-        # Convert to grayscale and enhance contrast for OCR
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-        )
-
-        text = pytesseract.image_to_string(gray, lang="por", config="--psm 6")
-
-        # Look for date patterns: DD/MM/YYYY, DD.MM.YYYY, DD-MM-YYYY
-        patterns = [
-            r"(\d{2}[/.\-]\d{2}[/.\-]\d{4})",  # DD/MM/YYYY
-            r"(\d{2}\s*/\s*\d{2}\s*/\s*\d{4})",  # DD / MM / YYYY (spaced)
-        ]
-
-        dates_found = []
-        for pattern in patterns:
-            matches = re.findall(pattern, text)
-            dates_found.extend(matches)
-
-        if not dates_found:
-            return None
-
-        # Return the first valid-looking date
-        for date_str in dates_found:
-            clean = re.sub(r"[.\-\s]", "/", date_str)
-            parts = clean.split("/")
-            if len(parts) == 3:
-                day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-                if 1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2025:
-                    return f"{day:02d}/{month:02d}/{year}"
-
-        return None
-    except Exception as e:
-        logger.warning(f"OCR failed: {e}")
-        return None
 
 
 # ── Endpoints ──────────────────────────────────────────
@@ -267,7 +209,6 @@ async def kyc(
     2. Detect face in selfie
     3. Compare faces (embedding similarity)
     4. Estimate age from selfie
-    5. Try OCR on document for birth date
 
     Returns:
     {
@@ -276,7 +217,6 @@ async def kyc(
       "selfie_age": 14,
       "selfie_gender": "M",
       "document_age": 14,
-      "ocr_birth_date": "15/06/2012",
       "processing_ms": 350,
       "verdict": "match" | "mismatch" | "no_face_document" | "no_face_selfie"
     }
@@ -316,9 +256,6 @@ async def kyc(
         similarity = cosine_similarity(doc_emb, selfie_emb)
         face_match = similarity >= 0.4
 
-    # OCR birth date from document
-    ocr_birth_date = extract_birth_date_ocr(doc_img)
-
     elapsed_ms = (time.time() - start) * 1000
 
     verdict = "match" if face_match else "mismatch"
@@ -331,7 +268,5 @@ async def kyc(
         "selfie_gender": selfie_faces[0]["gender"],
         "document_age": doc_faces[0]["age"],
         "document_gender": doc_faces[0]["gender"],
-        "ocr_birth_date": ocr_birth_date,
-        "ocr_available": ocr_available,
         "processing_ms": round(elapsed_ms, 1),
     }

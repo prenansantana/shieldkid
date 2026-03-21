@@ -40,7 +40,7 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!token) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "Invalid API token",
+      message: "Token de API inválido",
     });
   }
 

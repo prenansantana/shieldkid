@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { apiToken, cpfCache, ageVerification } from "@/server/db/schema";
+import { apiToken, cpfCache, ageVerification, setting } from "@/server/db/schema";
 import { hashToken, hashCpf, encrypt, decrypt, validateSessionToken, markSessionUsed } from "@/server/lib/crypto";
 import { calculateAge, getAgeBracket } from "@/server/lib/age";
 import { queryCpf, isSerproConfigured } from "@/server/services/serpro";
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   if (!token) {
     return NextResponse.json(
-      { error: "Authorization header with Bearer token required" },
+      { error: "Cabeçalho Authorization com token Bearer obrigatório" },
       { status: 401 }
     );
   }
@@ -43,7 +43,17 @@ export async function POST(req: NextRequest) {
     .limit(1);
 
   if (!validToken) {
-    return NextResponse.json({ error: "Invalid API token" }, { status: 401 });
+    return NextResponse.json({ error: "Token de API inválido" }, { status: 401 });
+  }
+
+  // Enforce allowed origins if configured
+  const [config] = await db.select({ sdkAllowedOrigins: setting.sdkAllowedOrigins }).from(setting).limit(1);
+  const allowedOrigins = config?.sdkAllowedOrigins ?? [];
+  if (allowedOrigins.length > 0) {
+    const origin = req.headers.get("origin") ?? "";
+    if (!allowedOrigins.includes(origin)) {
+      return NextResponse.json({ error: "Origem não permitida" }, { status: 403 });
+    }
   }
 
   // Parse body (JSON or multipart)
@@ -65,7 +75,7 @@ export async function POST(req: NextRequest) {
     try {
       body = await req.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return NextResponse.json({ error: "Corpo JSON inválido" }, { status: 400 });
     }
     cpf = body.cpf;
     externalUserId = body.externalUserId;
@@ -99,7 +109,7 @@ export async function POST(req: NextRequest) {
 
   if (!externalUserId) {
     return NextResponse.json(
-      { error: "externalUserId is required" },
+      { error: "externalUserId obrigatório" },
       { status: 400 }
     );
   }
@@ -110,7 +120,7 @@ export async function POST(req: NextRequest) {
     normalizedCpf = cpf.replace(/\D/g, "");
     if (normalizedCpf.length !== 11) {
       return NextResponse.json(
-        { error: "CPF must have 11 digits" },
+        { error: "CPF deve ter 11 dígitos" },
         { status: 400 }
       );
     }
@@ -213,7 +223,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
               error: "Nenhum rosto detectado na imagem. Tente novamente com uma selfie clara",
               action: "retry",
-            });
+            }, { status: 422 });
           }
         } else {
           estimatedAge = result.estimatedAge;
@@ -349,13 +359,13 @@ export async function POST(req: NextRequest) {
       eventType: "verification.cpf.failed",
       actorId: externalUserId,
       payload: {
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : "Erro desconhecido",
       },
       ipAddress,
     });
 
     return NextResponse.json(
-      { error: "Verification failed" },
+      { error: "Falha na verificação" },
       { status: 500 }
     );
   }

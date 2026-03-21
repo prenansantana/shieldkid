@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const protectedRoutes = ["/overview", "/verifications", "/settings"];
+const protectedRoutes = ["/overview", "/verifications", "/settings", "/webhooks"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -85,5 +85,6 @@ export const config = {
     "/overview/:path*",
     "/verifications/:path*",
     "/settings/:path*",
+    "/webhooks/:path*",
   ],
 };

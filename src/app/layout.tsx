@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ShieldKid — Age Verification & Parental Control",
+  title: "ShieldKid — Verificação de Idade e Controle Parental",
   description:
-    "Open-source compliance tool for Brazil's Lei Felca (ECA Digital)",
+    "Ferramenta open-source de compliance com a Lei Felca (Lei 15.211/2025 — ECA Digital)",
 };
 
 export default function RootLayout({

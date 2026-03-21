@@ -22,7 +22,7 @@ export class ApiClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(
-        (error as { error?: string }).error || `Verification failed: ${response.status}`
+        (error as { error?: string }).error || `Verificação falhou: ${response.status}`
       );
     }
 
@@ -77,7 +77,7 @@ export class ApiClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(
-        (error as { error?: string }).error || `Verification failed: ${response.status}`
+        (error as { error?: string }).error || `Verificação falhou: ${response.status}`
       );
     }
 

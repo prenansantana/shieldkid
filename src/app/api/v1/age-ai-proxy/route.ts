@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/server/db";
+import { apiToken } from "@/server/db/schema";
+import { hashToken } from "@/server/lib/crypto";
+import { eq } from "drizzle-orm";
 
 /**
  * POST /api/v1/age-ai-proxy
@@ -7,6 +11,27 @@ import { NextRequest, NextResponse } from "next/server";
  * Forwards the image to the age-ai container and returns the result.
  */
 export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return NextResponse.json(
+      { error: "Cabeçalho Authorization com token Bearer obrigatório" },
+      { status: 401 }
+    );
+  }
+
+  const tokenHash = hashToken(token);
+  const [validToken] = await db
+    .select()
+    .from(apiToken)
+    .where(eq(apiToken.tokenHash, tokenHash))
+    .limit(1);
+
+  if (!validToken) {
+    return NextResponse.json({ error: "Token de API inválido" }, { status: 401 });
+  }
+
   const ageAiUrl = process.env.AGE_AI_URL ?? "http://localhost:8100";
 
   try {
@@ -22,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Age AI proxy error" },
+      { error: error instanceof Error ? error.message : "Erro no proxy de IA" },
       { status: 502 }
     );
   }

@@ -54,6 +54,7 @@ export const setting = pgTable("setting", {
   webhookUrl: text("webhookUrl"),
   webhookSecret: text("webhookSecret"),
   webhookEvents: jsonb("webhookEvents").$type<string[]>().default([]),
+  sdkAllowedOrigins: jsonb("sdkAllowedOrigins").$type<string[]>().default([]),
   emailProvider: text("emailProvider").default("resend"),
   emailConfig: jsonb("emailConfig").$type<Record<string, string>>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

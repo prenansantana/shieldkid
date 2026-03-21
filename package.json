@@ -2,7 +2,7 @@
   "name": "shieldkid",
   "version": "0.1.0",
   "private": true,
-  "description": "Open-source age verification & parental control for Brazil's Lei Felca compliance",
+  "description": "Ferramenta open-source de verificação de idade e controle parental em conformidade com a Lei Felca (Lei 15.211/2025 — ECA Digital)",
   "license": "MIT",
   "scripts": {
     "dev": "next dev --turbopack",

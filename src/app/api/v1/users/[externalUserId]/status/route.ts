@@ -27,7 +27,7 @@ export async function GET(
 
   if (!token) {
     return NextResponse.json(
-      { error: "Authorization header with Bearer token required" },
+      { error: "Cabeçalho Authorization com token Bearer obrigatório" },
       { status: 401 }
     );
   }
@@ -40,7 +40,7 @@ export async function GET(
     .limit(1);
 
   if (!validToken) {
-    return NextResponse.json({ error: "Invalid API token" }, { status: 401 });
+    return NextResponse.json({ error: "Token de API inválido" }, { status: 401 });
   }
 
   // Get latest verification for this user
@@ -55,7 +55,7 @@ export async function GET(
     return NextResponse.json({
       verified: false,
       externalUserId,
-      message: "User has not been verified yet. Call POST /api/v1/verify first.",
+      message: "Usuário ainda não verificado. Chame POST /api/v1/verify primeiro.",
     });
   }
 

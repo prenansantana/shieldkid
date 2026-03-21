@@ -1,4 +1,4 @@
-import { createHmac, createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createHmac, createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
@@ -113,7 +113,9 @@ export function validateSessionToken(sessionId: string): { valid: boolean; nonce
     .update(`session:${nonce}:${expiresAtStr}`)
     .digest("hex");
 
-  if (signature !== expectedSig) {
+  const sigBuf = Buffer.from(signature ?? "", "hex");
+  const expectedBuf = Buffer.from(expectedSig, "hex");
+  if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
     return { valid: false, nonce: nonce!, error: "Sessão inválida" };
   }
 
@@ -125,18 +127,24 @@ export function validateSessionToken(sessionId: string): { valid: boolean; nonce
   return { valid: true, nonce: nonce! };
 }
 
-// In-memory set of used nonces (single-use sessions)
-const usedNonces = new Set<string>();
+// In-memory map of used nonces with per-entry expiry timestamps
+const usedNonces = new Map<string, number>();
 
-// Cleanup old nonces every 5 minutes
+// Evict expired nonces every minute
 setInterval(() => {
-  usedNonces.clear();
-}, 5 * 60 * 1000).unref();
+  const now = Date.now();
+  for (const [nonce, expiresAt] of usedNonces) {
+    if (now > expiresAt) {
+      usedNonces.delete(nonce);
+    }
+  }
+}, 60 * 1000).unref();
 
 export function markSessionUsed(nonce: string): boolean {
   if (usedNonces.has(nonce)) {
     return false; // Already used
   }
-  usedNonces.add(nonce);
+  // Store nonce until the session TTL elapses
+  usedNonces.set(nonce, Date.now() + SESSION_TTL_MS);
   return true;
 }

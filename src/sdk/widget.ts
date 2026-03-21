@@ -142,7 +142,7 @@ export class ShieldKid {
   open(externalUserId?: string): void {
     const userId = externalUserId ?? this.config.externalUserId;
     if (!userId) {
-      throw new Error("externalUserId is required");
+      throw new Error("externalUserId obrigatório");
     }
 
     const method: VerificationMethod = this.config.method ?? "face";
@@ -365,11 +365,11 @@ export class ShieldKid {
       } catch (err) {
         verifyBtn.disabled = false;
         verifyBtn.textContent = t.verify;
-        errorEl.textContent = err instanceof Error ? err.message : "Verification failed";
+        errorEl.textContent = err instanceof Error ? err.message : "Verificação falhou";
         errorEl.style.display = "block";
 
         if (this.config.onError) {
-          this.config.onError(err instanceof Error ? err : new Error("Verification failed"));
+          this.config.onError(err instanceof Error ? err : new Error("Verificação falhou"));
         }
       }
     });

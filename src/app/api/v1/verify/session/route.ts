@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   if (!token) {
     return NextResponse.json(
-      { error: "Authorization header with Bearer token required" },
+      { error: "Cabeçalho Authorization com token Bearer obrigatório" },
       { status: 401 }
     );
   }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     .limit(1);
 
   if (!validToken) {
-    return NextResponse.json({ error: "Invalid API token" }, { status: 401 });
+    return NextResponse.json({ error: "Token de API inválido" }, { status: 401 });
   }
 
   const session = createSessionToken();

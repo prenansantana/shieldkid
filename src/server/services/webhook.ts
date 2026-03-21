@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import { db } from "@/server/db";
 import { setting } from "@/server/db/schema";
+import { decrypt } from "@/server/lib/crypto";
 import { logAudit } from "./audit";
 
 type WebhookEvent = {
@@ -22,7 +23,8 @@ function signPayload(payload: string, secret: string): string {
  */
 export async function dispatchWebhook(event: WebhookEvent): Promise<boolean> {
   const [config] = await db.select().from(setting).limit(1);
-  if (!config?.webhookUrl || !config?.webhookSecret) {
+  const webhookSecret = config?.webhookSecret ? decrypt(config.webhookSecret) : null;
+  if (!config?.webhookUrl || !webhookSecret) {
     return false;
   }
 
@@ -33,7 +35,7 @@ export async function dispatchWebhook(event: WebhookEvent): Promise<boolean> {
   }
 
   const payload = JSON.stringify(event);
-  const signature = signPayload(payload, config.webhookSecret);
+  const signature = signPayload(payload, webhookSecret);
 
   try {
     const response = await fetch(config.webhookUrl, {
