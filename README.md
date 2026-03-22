@@ -50,7 +50,7 @@ Pronto! App rodando em `http://localhost:3000`.
 No primeiro acesso, o sistema redireciona para `/setup` onde você:
 1. Cria a conta de administrador
 2. Configura o Serpro (opcional — pode pular e usar apenas IA)
-3. Gera o token de API
+3. Gera os tokens de API (chave pública para o SDK + chave secreta para o servidor)
 
 ### Desenvolvimento local
 
@@ -127,20 +127,35 @@ Copie `.env.example` para `.env` e configure:
 
 ---
 
+## Tokens de API (Segurança)
+
+O ShieldKid usa dois tipos de token, similar ao modelo do Stripe:
+
+| Tipo | Prefixo | Onde usar | Permissões |
+|------|---------|-----------|------------|
+| **Pública** | `sk_pub_xxx` | Browser / SDK / client-side | Criar sessões, enviar verificações |
+| **Secreta** | `sk_secret_xxx` | Servidor / backend | Acesso completo (ler status, webhooks, tRPC) |
+
+> **Nunca use a chave secreta (`sk_secret_xxx`) em código client-side.** Qualquer pessoa pode extrair tokens do browser via DevTools. A chave pública (`sk_pub_xxx`) é segura para o browser porque só permite criar sessões e enviar verificações — não pode ler resultados nem consultar dados de usuários.
+
+Ambos os tokens são gerados automaticamente no setup. Você pode criar tokens adicionais no dashboard em **Configurações > Tokens**.
+
+---
+
 ## Como usar
 
-### 1. SDK JavaScript (recomendado)
+### 1. SDK JavaScript — HTML puro (script tag)
 
-O widget abre a câmera, captura a selfie, envia pro ShieldKid e retorna o resultado via callback. Tudo isolado em Shadow DOM.
+O widget abre a câmera, captura a selfie, envia pro ShieldKid e retorna o resultado via callback. Tudo isolado em Shadow DOM. Funciona em qualquer site — sem framework, sem build.
 
 ```html
 <script src="https://sua-instancia.com/sdk.js"></script>
 <script>
   const sk = ShieldKid.init({
     endpoint: 'https://sua-instancia.com',
-    token: 'sk_xxx',
-    method: 'face',     // 'face' | 'cpf' | 'cpf+face'
-    mode: 'gate',       // 'gate' (não fecha) | 'inline' (permite fechar)
+    token: 'sk_pub_xxx',   // chave PÚBLICA — segura no browser
+    method: 'face',         // 'face' | 'cpf' | 'cpf+face'
+    mode: 'gate',           // 'gate' (não fecha) | 'inline' (permite fechar)
     locale: 'pt-BR',
     onVerified: (result) => {
       console.log(result.ageBracket); // "child" | "teen_12_15" | "teen_16_17" | "adult"
@@ -166,12 +181,163 @@ O widget abre a câmera, captura a selfie, envia pro ShieldKid e retorna o resul
 </script>
 ```
 
-### 2. API REST
+### 2. SDK — React
+
+```tsx
+'use client'; // necessário no Next.js App Router
+
+import { useEffect } from 'react';
+import { ShieldKid } from '@shieldkid/sdk';
+
+interface AgeGateProps {
+  userId: string;
+  onVerified: (result: any) => void;
+}
+
+export function AgeGate({ userId, onVerified }: AgeGateProps) {
+  useEffect(() => {
+    const sk = ShieldKid.init({
+      endpoint: 'https://sua-instancia.com',
+      token: 'sk_pub_xxx',  // chave pública
+      method: 'face',
+      mode: 'gate',
+      onVerified,
+      onMinor: (result) => {
+        // redirecionar para fluxo de responsável
+      },
+    });
+
+    sk.open(userId);
+  }, [userId, onVerified]);
+
+  return null; // o widget abre como modal
+}
+
+// Uso:
+// <AgeGate userId="user_123" onVerified={(r) => console.log(r)} />
+```
+
+### 3. SDK — Vue
+
+```vue
+<script setup lang="ts">
+import { onMounted } from 'vue';
+import { ShieldKid } from '@shieldkid/sdk';
+
+const props = defineProps<{
+  userId: string;
+}>();
+
+const emit = defineEmits<{
+  verified: [result: any];
+}>();
+
+onMounted(() => {
+  const sk = ShieldKid.init({
+    endpoint: 'https://sua-instancia.com',
+    token: 'sk_pub_xxx',  // chave pública
+    method: 'face',
+    mode: 'gate',
+    onVerified: (result) => emit('verified', result),
+  });
+
+  sk.open(props.userId);
+});
+</script>
+
+<template>
+  <!-- o widget abre como modal, não precisa de template -->
+  <slot />
+</template>
+
+<!-- Uso: <AgeGate userId="user_123" @verified="handleResult" /> -->
+```
+
+### 4. SDK — Next.js (client + server)
+
+**Client-side** — componente que abre o widget:
+```tsx
+'use client';
+
+import { useEffect } from 'react';
+
+export function AgeGate({ userId }: { userId: string }) {
+  useEffect(() => {
+    // Dynamic import para evitar SSR
+    import('@shieldkid/sdk').then(({ ShieldKid }) => {
+      const sk = ShieldKid.init({
+        endpoint: process.env.NEXT_PUBLIC_SHIELDKID_URL!,
+        token: process.env.NEXT_PUBLIC_SHIELDKID_PUB_KEY!,  // sk_pub_xxx
+        method: 'face',
+        onVerified: async (result) => {
+          // Enviar verificationId pro seu backend para validação
+          await fetch('/api/verify-callback', {
+            method: 'POST',
+            body: JSON.stringify({ verificationId: result.verificationId }),
+          });
+        },
+      });
+      sk.open(userId);
+    });
+  }, [userId]);
+
+  return null;
+}
+```
+
+**Server-side** — consultar status com chave secreta:
+```typescript
+// app/api/check-user/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(req: NextRequest) {
+  const userId = req.nextUrl.searchParams.get('userId');
+
+  const res = await fetch(
+    `${process.env.SHIELDKID_URL}/api/v1/users/${userId}/status`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.SHIELDKID_SECRET_KEY}`,  // sk_secret_xxx
+      },
+    }
+  );
+
+  const data = await res.json();
+  return NextResponse.json(data);
+}
+```
+
+### 5. Node.js / Backend (qualquer linguagem)
+
+Use a API REST diretamente com a chave secreta:
+
+```typescript
+// Verificar idade por CPF (server-side)
+const res = await fetch('https://sua-instancia.com/api/v1/verify', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer sk_secret_xxx',  // chave secreta — só no servidor
+  },
+  body: JSON.stringify({
+    cpf: '123.456.789-00',
+    externalUserId: 'user_123',
+  }),
+});
+
+// Consultar status do usuário
+const status = await fetch(
+  'https://sua-instancia.com/api/v1/users/user_123/status',
+  { headers: { Authorization: 'Bearer sk_secret_xxx' } }
+);
+```
+
+### 6. API REST
 
 ```bash
 # Verificar idade por CPF (JSON) — sem sessão necessária
 curl -X POST https://sua-instancia.com/api/v1/verify \
-  -H "Authorization: Bearer sk_seu_token" \
+  -H "Authorization: Bearer sk_secret_xxx" \
   -H "Content-Type: application/json" \
   -d '{"cpf": "123.456.789-00", "externalUserId": "user_123"}'
 ```
@@ -183,18 +349,18 @@ curl -X POST https://sua-instancia.com/api/v1/verify \
 ```bash
 # 1. Criar sessão (válida por 2 min, uso único)
 SESSION=$(curl -s -X POST https://sua-instancia.com/api/v1/verify/session \
-  -H "Authorization: Bearer sk_seu_token" | jq -r '.sessionId')
+  -H "Authorization: Bearer sk_secret_xxx" | jq -r '.sessionId')
 
 # 2. Verificar idade por selfie (multipart com sessionId)
 curl -X POST https://sua-instancia.com/api/v1/verify \
-  -H "Authorization: Bearer sk_seu_token" \
+  -H "Authorization: Bearer sk_secret_xxx" \
   -F "externalUserId=user_123" \
   -F "sessionId=$SESSION" \
   -F "image=@selfie.jpg"
 
 # 3. Verificar com CPF + selfie
 curl -X POST https://sua-instancia.com/api/v1/verify \
-  -H "Authorization: Bearer sk_seu_token" \
+  -H "Authorization: Bearer sk_secret_xxx" \
   -F "externalUserId=user_123" \
   -F "cpf=12345678900" \
   -F "sessionId=$SESSION" \
@@ -236,11 +402,13 @@ curl -X POST https://sua-instancia.com/api/v1/verify \
 }
 ```
 
-### 3. Consultar status de um usuário
+### 7. Consultar status de um usuário
+
+> Requer chave secreta (`sk_secret_xxx`). Chaves públicas recebem 403.
 
 ```bash
 curl https://sua-instancia.com/api/v1/users/user_123/status \
-  -H "Authorization: Bearer sk_seu_token"
+  -H "Authorization: Bearer sk_secret_xxx"
 ```
 
 ```json
@@ -262,7 +430,9 @@ curl https://sua-instancia.com/api/v1/users/user_123/status \
 }
 ```
 
-### 4. tRPC (TypeScript)
+### 8. tRPC (TypeScript)
+
+> Requer chave secreta (`sk_secret_xxx`).
 
 ```typescript
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
@@ -272,7 +442,7 @@ const client = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: 'http://localhost:3000/api/trpc',
-      headers: { authorization: 'Bearer sk_xxx' },
+      headers: { authorization: 'Bearer sk_secret_xxx' },
     }),
   ],
 });
@@ -485,7 +655,7 @@ O ShieldKid está em desenvolvimento ativo. Abaixo o que já funciona e o que es
 - [x] API REST unificada (`POST /api/v1/verify`)
 - [x] API de status do usuário (`GET /api/v1/users/:id/status`)
 - [x] Dashboard admin (overview, verificações, configurações)
-- [x] Gerenciamento de tokens de API (criar, revogar)
+- [x] Gerenciamento de tokens de API (criar, revogar, chave pública vs secreta)
 - [x] Onboarding (setup do admin no primeiro acesso)
 - [x] Logs de auditoria append-only
 - [x] Faixas etárias conforme Lei Felca (child, teen_12_15, teen_16_17, adult)

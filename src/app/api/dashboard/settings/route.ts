@@ -24,6 +24,7 @@ export async function GET() {
     .select({
       id: apiToken.id,
       name: apiToken.name,
+      tokenType: apiToken.tokenType,
       lastUsedAt: apiToken.lastUsedAt,
       createdAt: apiToken.createdAt,
     })

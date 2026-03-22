@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/server/db";
-import { apiToken } from "@/server/db/schema";
-import { hashToken, createSessionToken } from "@/server/lib/crypto";
-import { eq } from "drizzle-orm";
+import { NextRequest } from "next/server";
+import { createSessionToken } from "@/server/lib/crypto";
+import { authenticateApiToken, isAuthError } from "@/server/lib/api-auth";
 
 /**
  * POST /api/v1/verify/session
@@ -11,31 +9,14 @@ import { eq } from "drizzle-orm";
  * The session token must be included when submitting images.
  * This prevents image uploads from outside the SDK.
  *
+ * Both publishable and secret tokens are allowed.
+ *
  * Returns: { sessionId: string, expiresAt: number }
  */
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-  if (!token) {
-    return NextResponse.json(
-      { error: "Cabeçalho Authorization com token Bearer obrigatório" },
-      { status: 401 }
-    );
-  }
-
-  const tokenHash = hashToken(token);
-  const [validToken] = await db
-    .select()
-    .from(apiToken)
-    .where(eq(apiToken.tokenHash, tokenHash))
-    .limit(1);
-
-  if (!validToken) {
-    return NextResponse.json({ error: "Token de API inválido" }, { status: 401 });
-  }
+  const authResult = await authenticateApiToken(req);
+  if (isAuthError(authResult)) return authResult;
 
   const session = createSessionToken();
-
-  return NextResponse.json(session);
+  return Response.json(session);
 }

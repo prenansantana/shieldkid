@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { apiToken, cpfCache, ageVerification, setting } from "@/server/db/schema";
-import { hashToken, hashCpf, encrypt, decrypt, validateSessionToken, markSessionUsed } from "@/server/lib/crypto";
+import { cpfCache, ageVerification, setting } from "@/server/db/schema";
+import { hashCpf, encrypt, decrypt, validateSessionToken, markSessionUsed } from "@/server/lib/crypto";
+import { authenticateApiToken, isAuthError } from "@/server/lib/api-auth";
 import { calculateAge, getAgeBracket } from "@/server/lib/age";
 import { queryCpf, isSerproConfigured } from "@/server/services/serpro";
 import { estimateAge, isAgeConsistent, isAgeAiAvailable } from "@/server/services/age-ai";
@@ -24,27 +25,10 @@ import { eq } from "drizzle-orm";
  * 5. If neither → error 400
  */
 export async function POST(req: NextRequest) {
-  // Authenticate
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-  if (!token) {
-    return NextResponse.json(
-      { error: "Cabeçalho Authorization com token Bearer obrigatório" },
-      { status: 401 }
-    );
-  }
-
-  const tokenHash = hashToken(token);
-  const [validToken] = await db
-    .select()
-    .from(apiToken)
-    .where(eq(apiToken.tokenHash, tokenHash))
-    .limit(1);
-
-  if (!validToken) {
-    return NextResponse.json({ error: "Token de API inválido" }, { status: 401 });
-  }
+  // Authenticate (publishable and secret tokens both allowed)
+  const authResult = await authenticateApiToken(req);
+  if (isAuthError(authResult)) return authResult;
+  const { token: validToken } = authResult;
 
   // Enforce allowed origins if configured
   const [config] = await db.select({ sdkAllowedOrigins: setting.sdkAllowedOrigins }).from(setting).limit(1);
@@ -325,12 +309,6 @@ export async function POST(req: NextRequest) {
     }).catch(() => {
       // Enqueue failure should never block verification response
     });
-
-    // Update token last used
-    await db
-      .update(apiToken)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(apiToken.id, validToken.id));
 
     // Build response
     const response: Record<string, unknown> = {

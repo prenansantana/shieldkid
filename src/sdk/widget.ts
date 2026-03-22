@@ -130,6 +130,15 @@ export class ShieldKid {
   constructor(config: ShieldKidConfig) {
     this.config = config;
     this.client = new ApiClient(config.endpoint, config.token);
+
+    if (config.token.startsWith("sk_secret_")) {
+      console.warn(
+        "[ShieldKid] You are using a secret key (sk_secret_xxx) in client-side code. " +
+        "This is insecure — anyone can extract it from the browser. " +
+        "Use a publishable key (sk_pub_xxx) instead. " +
+        "See: https://github.com/shieldkid/shieldkid#security"
+      );
+    }
   }
 
   static init(config: ShieldKidConfig): ShieldKid {

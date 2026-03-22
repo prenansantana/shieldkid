@@ -14,26 +14,39 @@ async function getSession() {
   return session;
 }
 
+function generateToken(type: "publishable" | "secret"): string {
+  const prefix = type === "publishable" ? "sk_pub_" : "sk_secret_";
+  return `${prefix}${randomBytes(24).toString("hex")}`;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
-  const { name } = await req.json();
+  const { name, type = "secret" } = await req.json();
   if (!name) {
     return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 });
   }
 
-  const token = `sk_${randomBytes(24).toString("hex")}`;
+  if (type !== "publishable" && type !== "secret") {
+    return NextResponse.json(
+      { error: 'Tipo inválido. Use "publishable" ou "secret".' },
+      { status: 400 }
+    );
+  }
+
+  const token = generateToken(type);
   const tokenHash = hashToken(token);
 
   await db.insert(apiToken).values({
     name,
     tokenHash,
+    tokenType: type,
   });
 
-  return NextResponse.json({ token });
+  return NextResponse.json({ token, type });
 }
 
 export async function DELETE(req: NextRequest) {

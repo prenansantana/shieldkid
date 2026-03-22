@@ -67,6 +67,7 @@ export const apiToken = pgTable("api_token", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   tokenHash: text("tokenHash").notNull().unique(),
+  tokenType: text("token_type").notNull().default("secret"),
   lastUsedAt: timestamp("lastUsedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
