@@ -44,6 +44,13 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
     });
   }
 
+  if (token.tokenType === "publishable") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Este endpoint requer uma chave secreta (sk_secret_xxx). Chaves públicas (sk_pub_xxx) só podem criar sessões e enviar verificações.",
+    });
+  }
+
   // Update last used timestamp
   await ctx.db
     .update(apiToken)

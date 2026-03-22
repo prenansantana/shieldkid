@@ -328,7 +328,7 @@ export default function SettingsPage() {
                             : "bg-yellow-100 text-yellow-700"
                         }`}
                       >
-                        {t.tokenType === "publishable" ? "publica" : "secreta"}
+                        {t.tokenType === "publishable" ? "pública" : "secreta"}
                       </span>
                     </div>
                     <p className="text-xs text-gray-400">
@@ -367,7 +367,7 @@ export default function SettingsPage() {
               onChange={(e) => setNewTokenType(e.target.value as "publishable" | "secret")}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
             >
-              <option value="publishable">Publica (SDK)</option>
+              <option value="publishable">Pública (SDK)</option>
               <option value="secret">Secreta (servidor)</option>
             </select>
             <button
@@ -379,7 +379,7 @@ export default function SettingsPage() {
             </button>
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            Chave publica: segura para usar no browser/SDK. Chave secreta: apenas no servidor.
+            Chave pública: segura para usar no browser/SDK. Chave secreta: apenas no servidor.
           </p>
           {tokenError && (
             <p className="text-sm text-red-600 mt-2">{tokenError}</p>

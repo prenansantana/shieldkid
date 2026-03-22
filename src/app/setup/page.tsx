@@ -337,10 +337,10 @@ export default function SetupPage() {
               <div className="space-y-3">
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                   <p className="text-sm font-medium text-blue-800 mb-1">
-                    Chave publica (SDK / client-side)
+                    Chave pública (SDK / client-side)
                   </p>
                   <p className="text-xs text-blue-600 mb-2">
-                    Segura para usar no browser. Pode apenas criar sessoes e enviar verificacoes.
+                    Segura para usar no browser. Pode apenas criar sessões e enviar verificações.
                   </p>
                   <code className="block bg-blue-100 px-3 py-2 rounded text-sm font-mono text-blue-900 break-all select-all">
                     {publishableToken}
@@ -352,7 +352,7 @@ export default function SetupPage() {
                     Chave secreta (server-side)
                   </p>
                   <p className="text-xs text-yellow-600 mb-2">
-                    Use apenas no servidor. Nunca exponha no browser. Acesso completo a API.
+                    Use apenas no servidor. Nunca exponha no browser. Acesso completo à API.
                   </p>
                   <code className="block bg-yellow-100 px-3 py-2 rounded text-sm font-mono text-yellow-900 break-all select-all">
                     {secretToken}
@@ -360,18 +360,18 @@ export default function SetupPage() {
                 </div>
 
                 <p className="text-xs text-red-600 font-medium">
-                  Copie ambas as chaves agora. Elas nao serao exibidas novamente.
+                  Copie ambas as chaves agora. Elas não serão exibidas novamente.
                 </p>
               </div>
             )}
 
             <div className="bg-gray-50 rounded-md p-4 space-y-2">
-              <p className="text-sm font-medium text-gray-700">Proximo passo:</p>
+              <p className="text-sm font-medium text-gray-700">Próximo passo:</p>
               <p className="text-sm text-gray-500">
-                Use a chave publica no SDK (client-side) e a secreta no seu servidor:
+                Use a chave pública no SDK (client-side) e a secreta no seu servidor:
               </p>
               <pre className="bg-gray-900 text-green-400 text-xs p-3 rounded overflow-x-auto">
-{`// SDK (browser) — chave publica
+{`// SDK (browser) — chave pública
 ShieldKid.init({
   endpoint: '${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}',
   token: '${publishableToken || "sk_pub_xxx"}',
