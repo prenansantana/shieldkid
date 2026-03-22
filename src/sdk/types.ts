@@ -5,7 +5,11 @@ export type VerificationMethod = "cpf" | "face" | "cpf+face";
 export interface ShieldKidConfig {
   /** URL of your ShieldKid instance */
   endpoint: string;
-  /** API token (sk_xxx) */
+  /**
+   * API token for authentication.
+   * Use a publishable key (sk_pub_xxx) for client-side / browser code.
+   * Never use your secret key (sk_secret_xxx) in client-side code.
+   */
   token: string;
   /**
    * Verification method:

@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 type TokenInfo = {
   id: string;
   name: string;
+  tokenType: string;
   lastUsedAt: string | null;
   createdAt: string;
 };
@@ -25,6 +26,7 @@ export default function SettingsPage() {
   // Tokens
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [newTokenName, setNewTokenName] = useState("");
+  const [newTokenType, setNewTokenType] = useState<"publishable" | "secret">("publishable");
   const [newTokenValue, setNewTokenValue] = useState("");
   const [showNewToken, setShowNewToken] = useState(false);
 
@@ -102,7 +104,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/dashboard/tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTokenName }),
+        body: JSON.stringify({ name: newTokenName, type: newTokenType }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -315,9 +317,20 @@ export default function SettingsPage() {
                   className="flex items-center justify-between py-3"
                 >
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {t.name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900">
+                        {t.name}
+                      </p>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          t.tokenType === "publishable"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {t.tokenType === "publishable" ? "publica" : "secreta"}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-400">
                       Criado em{" "}
                       {new Date(t.createdAt).toLocaleDateString("pt-BR")}
@@ -349,6 +362,14 @@ export default function SettingsPage() {
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
               placeholder="Nome do token (ex: produção, staging)"
             />
+            <select
+              value={newTokenType}
+              onChange={(e) => setNewTokenType(e.target.value as "publishable" | "secret")}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+            >
+              <option value="publishable">Publica (SDK)</option>
+              <option value="secret">Secreta (servidor)</option>
+            </select>
             <button
               onClick={handleCreateToken}
               disabled={creatingToken}
@@ -357,6 +378,9 @@ export default function SettingsPage() {
               {creatingToken ? "Criando..." : "Criar token"}
             </button>
           </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Chave publica: segura para usar no browser/SDK. Chave secreta: apenas no servidor.
+          </p>
           {tokenError && (
             <p className="text-sm text-red-600 mt-2">{tokenError}</p>
           )}

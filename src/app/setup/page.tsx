@@ -23,7 +23,8 @@ export default function SetupPage() {
 
   // Token
   const [tokenName, setTokenName] = useState("default");
-  const [generatedToken, setGeneratedToken] = useState("");
+  const [publishableToken, setPublishableToken] = useState("");
+  const [secretToken, setSecretToken] = useState("");
 
   useEffect(() => {
     fetch("/api/setup/status")
@@ -86,7 +87,8 @@ export default function SetupPage() {
         return;
       }
 
-      setGeneratedToken(data.apiToken ?? "");
+      setPublishableToken(data.publishableToken ?? "");
+      setSecretToken(data.secretToken ?? "");
       setStep("done");
     } catch {
       setError("Erro inesperado. Tente novamente.");
@@ -331,27 +333,54 @@ export default function SetupPage() {
               </p>
             </div>
 
-            {generatedToken && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                <p className="text-sm font-medium text-yellow-800 mb-2">
-                  Copie seu token de API agora. Ele não será exibido novamente.
+            {(publishableToken || secretToken) && (
+              <div className="space-y-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                  <p className="text-sm font-medium text-blue-800 mb-1">
+                    Chave publica (SDK / client-side)
+                  </p>
+                  <p className="text-xs text-blue-600 mb-2">
+                    Segura para usar no browser. Pode apenas criar sessoes e enviar verificacoes.
+                  </p>
+                  <code className="block bg-blue-100 px-3 py-2 rounded text-sm font-mono text-blue-900 break-all select-all">
+                    {publishableToken}
+                  </code>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <p className="text-sm font-medium text-yellow-800 mb-1">
+                    Chave secreta (server-side)
+                  </p>
+                  <p className="text-xs text-yellow-600 mb-2">
+                    Use apenas no servidor. Nunca exponha no browser. Acesso completo a API.
+                  </p>
+                  <code className="block bg-yellow-100 px-3 py-2 rounded text-sm font-mono text-yellow-900 break-all select-all">
+                    {secretToken}
+                  </code>
+                </div>
+
+                <p className="text-xs text-red-600 font-medium">
+                  Copie ambas as chaves agora. Elas nao serao exibidas novamente.
                 </p>
-                <code className="block bg-yellow-100 px-3 py-2 rounded text-sm font-mono text-yellow-900 break-all select-all">
-                  {generatedToken}
-                </code>
               </div>
             )}
 
             <div className="bg-gray-50 rounded-md p-4 space-y-2">
-              <p className="text-sm font-medium text-gray-700">Próximo passo:</p>
+              <p className="text-sm font-medium text-gray-700">Proximo passo:</p>
               <p className="text-sm text-gray-500">
-                Use o token acima para chamar a API de verificação:
+                Use a chave publica no SDK (client-side) e a secreta no seu servidor:
               </p>
               <pre className="bg-gray-900 text-green-400 text-xs p-3 rounded overflow-x-auto">
-{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/v1/verify \\
-  -H "Authorization: Bearer ${generatedToken || "SEU_TOKEN"}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"cpf":"12345678901","externalUserId":"user_1"}'`}
+{`// SDK (browser) — chave publica
+ShieldKid.init({
+  endpoint: '${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}',
+  token: '${publishableToken || "sk_pub_xxx"}',
+  method: 'face',
+});
+
+// Server — chave secreta
+curl ${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/v1/users/user_1/status \\
+  -H "Authorization: Bearer ${secretToken || "sk_secret_xxx"}"`}
               </pre>
             </div>
 

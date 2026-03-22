@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { apiToken, ageVerification, parentalLink } from "@/server/db/schema";
-import { hashToken } from "@/server/lib/crypto";
+import { ageVerification, parentalLink } from "@/server/db/schema";
+import { authenticateApiToken, isAuthError, requireScope } from "@/server/lib/api-auth";
 import { eq, desc, and, or } from "drizzle-orm";
 
 /**
@@ -21,27 +21,12 @@ export async function GET(
 ) {
   const { externalUserId } = await params;
 
-  // Authenticate
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  // Authenticate — requires secret key (publishable keys cannot read user data)
+  const authResult = await authenticateApiToken(req);
+  if (isAuthError(authResult)) return authResult;
 
-  if (!token) {
-    return NextResponse.json(
-      { error: "Cabeçalho Authorization com token Bearer obrigatório" },
-      { status: 401 }
-    );
-  }
-
-  const tokenHash = hashToken(token);
-  const [validToken] = await db
-    .select()
-    .from(apiToken)
-    .where(eq(apiToken.tokenHash, tokenHash))
-    .limit(1);
-
-  if (!validToken) {
-    return NextResponse.json({ error: "Token de API inválido" }, { status: 401 });
-  }
+  const scopeError = requireScope(authResult.scope, "secret");
+  if (scopeError) return scopeError;
 
   // Get latest verification for this user
   const [latestVerification] = await db
