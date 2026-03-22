@@ -106,11 +106,16 @@ export default function FaceDemoPage() {
 
       const res = await fetch("/api/v1/age-ai-proxy", {
         method: "POST",
+        headers: apiToken ? { Authorization: `Bearer ${apiToken}` } : {},
         body: formData,
       });
 
-      const data = (await res.json()) as AnalyzeResponse;
-      setAiResult(data);
+      const data = (await res.json()) as Partial<AnalyzeResponse>;
+
+      if (!res.ok) {
+        throw new Error((data as Record<string, string>).error ?? `Erro ${res.status}`);
+      }
+      setAiResult({ faces: [], face_count: 0, processing_ms: 0, ...data });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao analisar imagem");
     } finally {
@@ -197,21 +202,22 @@ export default function FaceDemoPage() {
           </button>
         </div>
 
-        {/* Verify mode: extra fields */}
-        {mode === "verify" && (
-          <div className="bg-white rounded-lg shadow p-4 mb-4 space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                API Token
-              </label>
-              <input
-                type="text"
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                placeholder="test-token"
-              />
-            </div>
+        {/* API Token (needed for both modes) */}
+        <div className="bg-white rounded-lg shadow p-4 mb-4 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              API Token
+            </label>
+            <input
+              type="text"
+              value={apiToken}
+              onChange={(e) => setApiToken(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+              placeholder="test-token"
+            />
+          </div>
+          {/* Verify mode: extra fields */}
+          {mode === "verify" && (
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 External User ID (ja verificado com CPF)
@@ -224,8 +230,8 @@ export default function FaceDemoPage() {
                 placeholder="user_maria"
               />
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Camera / Image */}
         <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
@@ -254,7 +260,7 @@ export default function FaceDemoPage() {
             )}
 
             {/* Overlay bounding boxes */}
-            {aiResult && capturedImage && canvasRef.current && (
+            {aiResult?.faces && capturedImage && canvasRef.current && (
               <svg
                 className="absolute inset-0 w-full h-full"
                 viewBox={`0 0 ${canvasRef.current.width} ${canvasRef.current.height}`}
@@ -388,7 +394,7 @@ export default function FaceDemoPage() {
                 Nenhum rosto detectado. Tente novamente com melhor iluminacao.
               </p>
             ) : (
-              aiResult.faces.map((face, i) => (
+              aiResult.faces?.map((face, i) => (
                 <div
                   key={i}
                   className="flex items-center gap-4 bg-gray-50 rounded-lg p-3"
